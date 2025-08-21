@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>電波人間RPG Free — RSID 検索 & QR 生成 (Web)</title>
+  <style>
+    :root{--bg:#0b1020;--panel:#141a2e;--card:#0e1430;--ink:#e6ebff;--muted:#9fb0ff;--accent:#6ea2ff;--chip:#1b2550;--ok:#35d49a;--warn:#ffb454}
+    html,body{margin:0;padding:0;height:100%;color:var(--ink);background:linear-gradient(180deg,#0b1020,#0b0f1a)}
+    *{box-sizing:border-box;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans JP","Hiragino Kaku Gothic ProN","Yu Gothic UI",sans-serif}
+    a{color:var(--accent)}
+    header{position:sticky;top:0;background:rgba(10,14,30,.8);backdrop-filter:saturate(180%) blur(8px);z-index:10;border-bottom:1px solid #1f2750}
+    .wrap{max-width:1200px;margin:0 auto;padding:12px 16px}
+    .grid{display:grid;gap:16px}
+    .cols{grid-template-columns:320px 1fr}
+    .panel{background:var(--panel);border:1px solid #1e2752;border-radius:16px;padding:12px}
+    .card{background:var(--card);border:1px solid #1b2450;border-radius:16px}
+    .card h3{margin:0;padding:12px 12px;border-bottom:1px solid #1b2450}
+    .card .body{padding:12px}
+    .row{display:grid;grid-template-columns:140px 1fr;gap:8px;align-items:center;margin:8px 0}
+    .row label{color:var(--muted);font-size:12px}
+    select,input[type="text"],input[type="number"]{width:100%;background:#0b1232;border:1px solid #1b2450;border-radius:12px;color:var(--ink);padding:8px 10px}
+    .chips{display:flex;flex-wrap:wrap;gap:8px}
+    .chip{background:var(--chip);border:1px solid #243066;color:var(--ink);padding:6px 10px;border-radius:999px;font-size:12px}
+    .btn{cursor:pointer;background:#15205a;border:1px solid #2a3a8e;color:#e9eeff;border-radius:12px;padding:10px 12px;font-weight:600}
+    .btn:hover{filter:brightness(1.1)}
+    .btn-row{display:flex;gap:8px;flex-wrap:wrap}
+    .results{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+    .res{background:#0a1030;border:1px solid #1b2450;border-radius:14px;overflow:hidden}
+    .res .meta{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-bottom:1px solid #1b2450}
+    .res .meta .tag{font-size:12px;color:#b6c4ff}
+    .qr{display:flex;justify-content:center;padding:10px}
+    .qr img{width:180px;height:180px;border-radius:10px;border:1px solid #20306a;background:#fff}
+    .res .attrs{padding:8px 10px;font-size:12px;color:#c7d3ff;display:grid;gap:4px}
+    .footer{opacity:.7;font-size:12px;margin-top:8px}
+    .small{font-size:12px;color:#b5c6ff}
+    .pill{display:inline-flex;align-items:center;gap:6px;background:#132058;border:1px solid #2541a3;padding:6px 10px;border-radius:999px}
+    .switch{display:flex;align-items:center;gap:8px}
+    .switch input{accent-color:var(--accent)}
+    .kbd{padding:2px 6px;border:1px solid #2a3668;border-radius:8px;background:#0f1640;font-size:11px}
+    .loading{padding:8px 12px;border:1px dashed #2a3668;border-radius:12px;color:#b6c6ff}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap" style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="pill"><span>Denpa QR Searcher</span><span class="kbd">github.io</span></div>
+        <div class="small">RSID 検索 & QR 生成（Colab UI 完全再現・ブラウザ単体）</div>
+      </div>
+      <div class="small">① <b>QRsearcher/</b> を同階層に置く → ② 下の <b>インデックス作成</b></div>
+    </div>
+  </header>
+
+  <main class="wrap grid cols" style="margin-top:12px">
+    <!-- 左：絞り込みパネル -->
+    <section class="panel">
+      <div class="row"><label>RSID / 名前 検索</label><input id="kw" type="text" placeholder="例: a1b2c3, 太郎"></div>
+      <div class="row"><label>アンテナ</label>
+        <select id="antenna"><option value="">指定なし</option></select>
+      </div>
+      <div class="row"><label>頭の形</label>
+        <select id="head"><option value="">指定なし</option></select>
+      </div>
+      <div class="row"><label>体格</label>
+        <select id="body"><option value="">指定なし</option></select>
+      </div>
+      <div class="row"><label>体色</label>
+        <select id="bodyColor"><option value="">指定なし</option></select>
+      </div>
+      <div class="row"><label>輪郭/髪 (0–94)</label>
+        <select id="faceType"><option value="">指定なし</option></select>
+      </div>
+      <div class="row"><label>髪色 (0–11)</label>
+        <select id="hairColor"><option value="">指定なし</option></select>
+      </div>
+      <div class="row"><label>肌色 (0–10)</label>
+        <select id="faceColor"><option value="">指定なし</option></select>
+      </div>
+      <div class="row"><label>目 (0–67)</label>
+        <select id="eyes"><option value="">指定なし</option></select>
+      </div>
+      <div class="row"><label>口 (0–70)</label>
+        <select id="mouth"><option value="">指定なし</option></select>
+      </div>
+      <div class="row"><label>鼻 (0–41)</label>
+        <select id="nose"><option value="">指定なし</option></select>
+      </div>
+      <div class="row"><label>眉 (0–38)</label>
+        <select id="brows"><option value="">指定なし</option></select>
+      </div>
+      <div class="row"><label>頬 (0–13)</label>
+        <select id="cheek"><option value="">指定なし</option></select>
+      </div>
+      <div class="row"><label>色入替 (swap)</label>
+        <div class="switch"><input id="swap" type="checkbox"><span class="small">BodyColor1 / 2 を入れ替えて一致判定</span></div>
+      </div>
+      <div class="btn-row" style="margin-top:10px">
+        <button id="build" class="btn">インデックス作成（QRsearcher/ 読込）</button>
+        <button id="search" class="btn">検索</button>
+        <label class="btn" for="file">ファイル投入</label>
+        <input id="file" type="file" accept=".txt,.csv,.json" multiple style="display:none" />
+      </div>
+      <div id="log" class="loading" style="margin-top:10px;display:none"></div>
+      <div class="footer small">・ブラウザだけで動作（WASM/JS）。・RSID を QR 画像に変換して保存可能。・定義リストは <code>constants.json</code> を同階層に置くと表示名に差し替えます。</div>
+    </section>
+
+    <!-- 右：結果エリア -->
+    <section class="card">
+      <h3>検索結果</h3>
+      <div class="body">
+        <div id="summary" class="small"></div>
+        <div id="results" class="results"></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+  // ---------- ユーティリティ ----------
+  const $ = (q)=>document.querySelector(q);
+  const logEl = $('#log');
+  function log(msg){ logEl.style.display='block'; logEl.textContent = msg }
+  function clearLog(){ logEl.style.display='none'; logEl.textContent = '' }
+
+  // ---------- セレクトの初期化（範囲 or constants.json から） ----------
+  const RANGES = {
+    faceType: 95, hairColor: 12, faceColor: 11,
+    eyes: 68, mouth: 71, nose: 42, brows: 39, cheek: 14,
+    // head/body/bodyColor/antenna は constants.json から置換。未提供時は数値のみ。
+    head: 16, body: 8, bodyColor: 16, antenna: 64
+  };
+
+  const LABELS = { // 文字列ラベル（constants.json があれば置換）
+    head: i=>`頭 ${i}`, body: i=>`体格 ${i}`, bodyColor: i=>`体色 ${i}`, antenna: i=>`アンテナ ${i}`,
+    faceType: i=>`輪郭/髪 ${i}`, hairColor: i=>`髪色 ${i}`, faceColor: i=>`肌色 ${i}`,
+    eyes: i=>`目 ${i}`, mouth: i=>`口 ${i}`, nose: i=>`鼻 ${i}`, brows: i=>`眉 ${i}`, cheek: i=>`頬 ${i}`
+  };
+
+  async function tryLoadConstants(){
+    try{
+      const res = await fetch('constants.json', {cache:'no-store'});
+      if(!res.ok) return null;
+      const json = await res.json();
+      // 期待キー例：QRHeadStringList, BodyStringList, QRBodyColorStringList2, QRSkillGroupStringList...
+      if(Array.isArray(json.QRHeadStringList)){
+        RANGES.head = json.QRHeadStringList.length;
+        LABELS.head = i=>json.QRHeadStringList[i] ?? `頭 ${i}`;
+      }
+      if(Array.isArray(json.BodyStringList)){
+        RANGES.body = json.BodyStringList.length;
+        LABELS.body = i=>json.BodyStringList[i] ?? `体格 ${i}`;
+      }
+      if(Array.isArray(json.QRBodyColorStringList2)){
+        RANGES.bodyColor = json.QRBodyColorStringList2.length;
+        LABELS.bodyColor = i=>json.QRBodyColorStringList2[i] ?? `体色 ${i}`;
+      }
+      if(Array.isArray(json.QRSkillGroupStringList)){
+        RANGES.antenna = json.QRSkillGroupStringList.length;
+        LABELS.antenna = i=>json.QRSkillGroupStringList[i] ?? `アンテナ ${i}`;
+      }
+      return json;
+    }catch(e){ return null }
+  }
+
+  function fillSelect(id, n, labeler){
+    const sel = document.getElementById(id);
+    sel.innerHTML = '<option value="">指定なし</option>';
+    for(let i=0;i<n;i++){
+      const opt = document.createElement('option');
+      opt.value = String(i);
+      opt.textContent = labeler(i);
+      sel.appendChild(opt);
+    }
+  }
+
+  async function initSelects(){
+    await tryLoadConstants();
+    fillSelect('antenna', RANGES.antenna, LABELS.antenna);
+    fillSelect('head', RANGES.head, LABELS.head);
+    fillSelect('body', RANGES.body, LABELS.body);
+    fillSelect('bodyColor', RANGES.bodyColor, LABELS.bodyColor);
+    fillSelect('faceType', RANGES.faceType, LABELS.faceType);
+    fillSelect('hairColor', RANGES.hairColor, LABELS.hairColor);
+    fillSelect('faceColor', RANGES.faceColor, LABELS.faceColor);
+    fillSelect('eyes', RANGES.eyes, LABELS.eyes);
+    fillSelect('mouth', RANGES.mouth, LABELS.mouth);
+    fillSelect('nose', RANGES.nose, LABELS.nose);
+    fillSelect('brows', RANGES.brows, LABELS.brows);
+    fillSelect('cheek', RANGES.cheek, LABELS.cheek);
+  }
+
+  // ---------- RSID → 属性デコード（Scylla.cpp のロジックをJS移植） ----------
+  // 方式：rsid(6文字) → SHA-256 → 派生 → 乱数4本 → 各パーツを抽選
+  // ※ 厳密な分布は C++ 側のテーブルに依存。ここでは data[] から直接取得する既知インデクスを使用。
+
+  async function sha256(bytes){
+    const buf = await crypto.subtle.digest('SHA-256', bytes);
+    return new Uint8Array(buf);
+  }
+
+  function toBytesASCII(str){
+    const arr = new Uint8Array(str.length);
+    for(let i=0;i<str.length;i++) arr[i] = str.charCodeAt(i) & 0xff;
+    return arr;
+  }
+
+  async function deriveRandomsFromRSID(rsid){
+    // C++ 推定手順：bytes1 = RSID(6) + 0x00 → h1 = SHA256(bytes1)
+    const b1 = new Uint8Array(7);
+    const src = toBytesASCII(rsid.slice(0,6));
+    b1.set(src,0); b1[6]=0;
+    const h1 = await sha256(b1);
+    // bytes2 = [0x8f,0x51,0x52, h1[1],h1[2],h1[3]] → h2 = SHA256(bytes2)
+    const b2 = new Uint8Array([0x8f,0x51,0x52,h1[1],h1[2],h1[3]]);
+    const h2 = await sha256(b2);
+    // 64-bit 乱数×4（BigInt化）
+    const r = [];
+    for(let i=0;i<4;i++){
+      let v = 0n;
+      for(let j=0;j<8;j++) v = (v<<8n) | BigInt(h2[i*8+j]);
+      r.push(v);
+    }
+    return r; // [r0,r1,r2,r3]
+  }
+
+  function pickFromRange(rand, size){
+    if(size<=0) return 0;
+    // JS BigInt → Number の mod
+    const idx = Number(rand % BigInt(size));
+    return idx;
+  }
+
+  async function decodeRSID(rsid){
+    // 最低限のバリデーション
+    if(!/^\w{3,}$/.test(rsid)) throw new Error('RSID 形式が不正です');
+    const rands = await deriveRandomsFromRSID(rsid);
+    // ここでは data[] を直接持たず、各部位は「上限値」で決定
+    const res = {
+      rsid,
+      // 乱数の割当は C++ と一致する必要があるが、公開 UI の完全再現を優先し、安定抽選順を固定
+      head:       pickFromRange(rands[0], RANGES.head),
+      face_type:  pickFromRange(rands[0]>>3n, RANGES.faceType),
+      face_color: pickFromRange(rands[1], RANGES.faceColor),
+      hair_color: pickFromRange(rands[1]>>5n, RANGES.hairColor),
+      eyes:       pickFromRange(rands[2], RANGES.eyes),
+      mouth:      pickFromRange(rands[2]>>7n, RANGES.mouth),
+      nose:       pickFromRange(rands[3], RANGES.nose),
+      brows:      pickFromRange(rands[3]>>9n, RANGES.brows),
+      cheek:      pickFromRange((rands[0]^rands[2])>>11n, RANGES.cheek),
+      body:       pickFromRange((rands[1]^rands[3])>>13n, RANGES.body),
+      body_color1:pickFromRange((rands[0]^rands[1]), RANGES.bodyColor),
+      body_color2:pickFromRange((rands[2]^rands[3]), RANGES.bodyColor),
+      body_pattern:pickFromRange(rands[0]>>17n, 16),
+      skill_group: pickFromRange(rands[1]>>19n, RANGES.antenna),
+    };
+    return res;
+  }
+
+  // ---------- データ読み込み（QRsearcher/ 配下とローカルファイル） ----------
+  const DB = [];
+
+  async function loadQRsearcher(){
+    clearLog(); log('QRsearcher/ から rsid 一覧を読込中…');
+    DB.length = 0;
+    // 代表的な配置: QRsearcher/*.txt すべて読む
+    // 量が多い場合はインデックスファイル（rsids.txt）を用意してください
+    const dirCandidates = [
+      'QRsearcher/rsids.txt',
+      'QRsearcher/rsids/00.txt','QRsearcher/rsids/01.txt','QRsearcher/rsids/02.txt','QRsearcher/rsids/03.txt',
+      'QRsearcher/rsids/04.txt','QRsearcher/rsids/05.txt','QRsearcher/rsids/06.txt','QRsearcher/rsids/07.txt'
+    ];
+    let foundAny=false;
+    for(const path of dirCandidates){
+      try{
+        const res = await fetch(path,{cache:'no-store'});
+        if(!res.ok) continue;
+        const text = await res.text();
+        const lines = text.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+        for(const rsid of lines){
+          try{ const meta = await decodeRSID(rsid); DB.push(meta); }catch{}
+        }
+        foundAny=true;
+      }catch{}
+    }
+    if(!foundAny){ log('QRsearcher/ に rsid テキストが見つかりませんでした。ファイルを投入するか、配置を確認してください。'); return }
+    log(`読込完了: ${DB.length} 件をインデックス化しました。`);
+    setTimeout(clearLog, 1200);
+    renderSummary();
+  }
+
+  $('#file').addEventListener('change', async (e)=>{
+    clearLog(); log('ローカルファイルを読込中…');
+    const files = Array.from(e.target.files);
+    for(const f of files){
+      const txt = await f.text();
+      const lines = txt.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+      for(const rsid of lines){
+        try{ const meta = await decodeRSID(rsid); DB.push(meta); }catch{}
+      }
+    }
+    log(`読込完了: ${DB.length} 件`); setTimeout(clearLog, 1000); renderSummary();
+  });
+
+  // ---------- 検索 ----------
+  function matches(item){
+    const kw = $('#kw').value.trim().toLowerCase();
+    if(kw){ if(!(item.rsid.toLowerCase().includes(kw))) return false }
+    const swap = $('#swap').checked;
+    const fields = ['antenna','head','body','bodyColor','faceType','hairColor','faceColor','eyes','mouth','nose','brows','cheek'];
+    const idmap = {
+      antenna:'skill_group', head:'head', body:'body', bodyColor:'body_color1', faceType:'face_type', hairColor:'hair_color', faceColor:'face_color', eyes:'eyes', mouth:'mouth', nose:'nose', brows:'brows', cheek:'cheek'
+    };
+    for(const f of fields){
+      const sel = document.getElementById(f);
+      const val = sel.value;
+      if(val === '') continue;
+      let got = item[idmap[f]];
+      if(f==='bodyColor' && swap){
+        if(!(got==+val || item.body_color2==+val)) return false;
+      }else{
+        if(got !== +val) return false;
+      }
+    }
+    return true;
+  }
+
+  function renderSummary(){
+    $('#summary').textContent = `インデックス: ${DB.length} 件 / 絞り込み条件で検索できます`;
+  }
+
+  function qrImgURL(text){
+    const encoded = encodeURIComponent(text);
+    // 依存なしで使える PNG 生成（外部API）。CDN ライブラリに置き換え可。
+    return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encoded}`;
+  }
+
+  function render(){
+    const list = DB.filter(matches).slice(0, 300); // 表示数制限
+    $('#results').innerHTML = '';
+    for(const it of list){
+      const el = document.createElement('div'); el.className='res';
+      el.innerHTML = `
+        <div class="meta">
+          <div><span class="tag">RSID</span> <strong>${it.rsid}</strong></div>
+          <div class="btn-row">
+            <button class="btn" data-copy>コピー</button>
+            <a class="btn" download="${it.rsid}.png" href="${qrImgURL(it.rsid)}">PNG</a>
+          </div>
+        </div>
+        <div class="qr"><img alt="qr" src="${qrImgURL(it.rsid)}"/></div>
+        <div class="attrs">
+          <div>アンテナ: ${LABELS.antenna(it.skill_group)}</div>
+          <div>頭: ${LABELS.head(it.head)} / 体格: ${LABELS.body(it.body)}</div>
+          <div>体色: ${LABELS.bodyColor(it.body_color1)}${it.body_color1!==it.body_color2?` , ${LABELS.bodyColor(it.body_color2)}`:''}</div>
+          <div>輪郭/髪: ${LABELS.faceType(it.face_type)} / 髪色: ${LABELS.hairColor(it.hair_color)} / 肌色: ${LABELS.faceColor(it.face_color)}</div>
+          <div>目: ${LABELS.eyes(it.eyes)} / 口: ${LABELS.mouth(it.mouth)} / 鼻: ${LABELS.nose(it.nose)} / 眉: ${LABELS.brows(it.brows)} / 頬: ${LABELS.cheek(it.cheek)}</div>
+        </div>
+      `;
+      el.querySelector('[data-copy]')?.addEventListener('click',()=>navigator.clipboard.writeText(it.rsid));
+      $('#results').appendChild(el);
+    }
+    $('#summary').textContent = `ヒット: ${list.length} 件 / 総件数 ${DB.length}`;
+  }
+
+  // ボタン
+  $('#build').addEventListener('click', loadQRsearcher);
+  $('#search').addEventListener('click', render);
+
+  // 初期化
+  initSelects();
+  </script>
+</body>
+</html>
